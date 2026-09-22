@@ -10,7 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // user hears nothing until the Director has an answer; Jev-backed routing on
 // the server keeps the turnaround short enough for a conversation.
 
-const SERVER = 'http://localhost:3333';
+const SERVER = 'http://127.0.0.1:3333';
 
 // Minimal typings for the (still prefixed) Web Speech API.
 interface SpeechRecognitionResultLike { isFinal: boolean; 0: { transcript: string } }

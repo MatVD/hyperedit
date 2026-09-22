@@ -59,7 +59,7 @@ interface ObsidianPanelProps {
   onRefreshAssets?: () => void;
 }
 
-const SERVER = 'http://localhost:3333';
+const SERVER = 'http://127.0.0.1:3333';
 
 // Jev speaks like an old English butler and keeps it to a sentence.
 const BUTLER: VoicePersona = {

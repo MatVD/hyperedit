@@ -2,4 +2,6 @@ dist/
 node_modules/
 .wrangler/
 .dev.vars
+.env.local
+.hyperedit-security.json
 worker-configuration.d.ts

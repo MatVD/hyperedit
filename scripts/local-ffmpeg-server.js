@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 import formidable from 'formidable';
 import { GoogleGenAI } from '@google/genai';
 import { fal } from '@fal-ai/client';
-import { queryVault as obsidianQueryVault, getItemById as obsidianGetItemById, thumbnailPathFor as obsidianThumbnailPathFor, getObsidianStatus, syncMirror as obsidianSyncMirror } from './obsidian-agent.js';
+import { queryVault as obsidianQueryVault, getItemById as obsidianGetItemById, thumbnailPathFor as obsidianThumbnailPathFor, getObsidianStatus } from './obsidian-agent.js';
 import { askJev, jevConfigured, choice as jevChoice, noul as jevNoul } from './jev.js';
 
 // Load environment variables from .dev.vars
@@ -68,6 +68,20 @@ async function callClaude(apiKey, system, userMessage, maxTokens = 1024) {
 }
 
 const PORT = 3333;
+const LOCAL_HOST = '127.0.0.1';
+const LOCAL_UI_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173']);
+const LOCAL_HOST_HEADERS = new Set([`localhost:${PORT}`, `${LOCAL_HOST}:${PORT}`]);
+const SECURITY_CONFIG_PATH = join(process.cwd(), '.hyperedit-security.json');
+const securityConfig = JSON.parse(readFileSync(SECURITY_CONFIG_PATH, 'utf-8'));
+const LOCAL_API_TOKEN = String(securityConfig.localApiToken || '').trim();
+if (!LOCAL_API_TOKEN) {
+  throw new Error('Missing localApiToken in .hyperedit-security.json');
+}
+
+function isStateChangingRequest(req) {
+  return !['GET', 'HEAD', 'OPTIONS'].includes(req.method || 'GET');
+}
+
 const TEMP_DIR = join(tmpdir(), 'hyperedit-ffmpeg');
 const SESSIONS_DIR = join(TEMP_DIR, 'sessions');
 
@@ -8411,9 +8425,19 @@ function runCreatorOS(args, extraEnv = {}) {
   // timeout here kills the CLI process before it sees that confirmation,
   // even though the post already went through server-side. 10 minutes gives
   // real headroom without hanging forever on a genuinely stuck command.
+  const creatorOSEnv = {
+    PATH: process.env.PATH,
+    HOME: process.env.HOME,
+    TMPDIR: process.env.TMPDIR,
+    USER: process.env.USER,
+    LANG: process.env.LANG,
+    LC_ALL: process.env.LC_ALL,
+    CREATOROS_NO_BANNER: '1',
+    ...extraEnv,
+  };
   const result = spawnSync(process.execPath, [CREATOROS_BIN, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, CREATOROS_NO_BANNER: '1', ...extraEnv },
+    env: creatorOSEnv,
     cwd: process.cwd(),
     timeout: 600000,
   });
@@ -8664,9 +8688,9 @@ If the request is ambiguous, unsafe, or the timeline is empty when a render is n
     if (step.action === 'render') {
       const idx = job.steps.push({ label: 'Rendering timeline…', status: 'running' }) - 1;
       try {
-        const renderRes = await fetch(`http://localhost:${PORT}/session/${sessionId}/render`, {
+        const renderRes = await fetch(`http://${LOCAL_HOST}:${PORT}/session/${sessionId}/render`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-HyperEdit-Token': LOCAL_API_TOKEN },
           body: JSON.stringify({ preview: false }),
         });
         const renderData = await renderRes.json();
@@ -9193,15 +9217,37 @@ async function runShortsJob(session, videoAsset, jobId, opts, anthropicApiKey) {
 }
 
 const server = http.createServer(async (req, res) => {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const host = req.headers.host;
+  if (host && !LOCAL_HOST_HEADERS.has(host)) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Host not allowed' }));
+    return;
+  }
+
+  const origin = req.headers.origin;
+  if (origin && !LOCAL_UI_ORIGINS.has(origin)) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Origin not allowed' }));
+    return;
+  }
+
+  // Local-only CORS. Individual handlers may still emit a wildcard header,
+  // but disallowed browser origins are rejected before routing reaches them.
+  res.setHeader('Access-Control-Allow-Origin', origin || 'http://localhost:5173');
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-HyperEdit-Token');
   res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  if (isStateChangingRequest(req) && req.headers['x-hyperedit-token'] !== LOCAL_API_TOKEN) {
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Invalid local API token' }));
     return;
   }
 
@@ -9430,8 +9476,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`\n🎬 Local FFmpeg server running at http://localhost:${PORT}`);
+server.listen(PORT, LOCAL_HOST, () => {
+  console.log(`\n🎬 Local FFmpeg server running at http://${LOCAL_HOST}:${PORT}`);
   console.log(`\n   Session API:`);
   console.log(`   POST /session/upload - Upload video, get sessionId`);
   console.log(`   GET  /session/:id/stream - Stream video for preview`);
@@ -9478,6 +9524,5 @@ server.listen(PORT, () => {
   console.log(`   POST /session/:id/shorts/start - Find viral moments and cut vertical shorts`);
   console.log(`   GET  /session/:id/shorts/status/:jobId - Poll shorts job progress + results`);
   console.log(`\n   GET /health - Health check\n`);
-  // Warm the Obsidian vault mirror so the first ask doesn't wait on iCloud
-  try { obsidianSyncMirror({ force: true }); console.log('[Obsidian] Mirror sync started'); } catch (e) { console.warn('[Obsidian] Mirror sync failed to start:', e.message); }
+  // Obsidian synchronization is lazy: querying the vault refreshes the mirror when stale.
 });
