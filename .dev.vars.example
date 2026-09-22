@@ -1,0 +1,16 @@
+# Copy to .dev.vars locally. Never commit real values.
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+GEMINI_API_KEY=
+FAL_API_KEY=
+GIPHY_API_KEY=
+TYPESAFE_API_KEY=
+
+# Local vault/media agent configuration
+OBSIDIAN_VAULT_PATH=
+JEV_MODEL=jev-latest
+
+# Optional Director voice overrides
+DIRECTOR_TTS_MODEL=tts-1
+DIRECTOR_TTS_INSTRUCTED_MODEL=gpt-4o-mini-tts
+DIRECTOR_TTS_VOICE=onyx

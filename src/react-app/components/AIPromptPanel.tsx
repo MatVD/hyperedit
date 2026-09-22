@@ -1139,7 +1139,7 @@ export default function AIPromptPanel({
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 4000);
     try {
-      const res = await fetch('http://localhost:3333/director/route', {
+      const res = await fetch('http://127.0.0.1:3333/director/route', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -42,7 +42,7 @@ interface ShortsPanelProps {
   onRefreshAssets: () => Promise<unknown>;
 }
 
-const SERVER = 'http://localhost:3333';
+const SERVER = 'http://127.0.0.1:3333';
 
 const RATIOS: { value: string; label: string; hint: string }[] = [
   { value: '9:16', label: '9:16', hint: 'TikTok / Reels / Shorts' },

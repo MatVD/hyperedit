@@ -77,7 +77,7 @@ export default function CreatorOSPanel({ sessionId, ensureSession }: CreatorOSPa
         if (cancelled) return;
         setSid(activeSid);
 
-        const response = await fetch(`http://localhost:3333/session/${activeSid}/creatoros/status`);
+        const response = await fetch(`http://127.0.0.1:3333/session/${activeSid}/creatoros/status`);
         const data = await response.json();
         if (cancelled) return;
 
@@ -108,7 +108,7 @@ export default function CreatorOSPanel({ sessionId, ensureSession }: CreatorOSPa
       const activeSid = sid ?? await ensureSession();
       setSid(activeSid);
 
-      const response = await fetch(`http://localhost:3333/session/${activeSid}/creatoros/init`, {
+      const response = await fetch(`http://127.0.0.1:3333/session/${activeSid}/creatoros/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey }),
@@ -168,7 +168,7 @@ export default function CreatorOSPanel({ sessionId, ensureSession }: CreatorOSPa
     };
 
     try {
-      const startResponse = await fetch(`http://localhost:3333/session/${sid}/creatoros/chat/start`, {
+      const startResponse = await fetch(`http://127.0.0.1:3333/session/${sid}/creatoros/chat/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
@@ -183,7 +183,7 @@ export default function CreatorOSPanel({ sessionId, ensureSession }: CreatorOSPa
       while (!done) {
         await new Promise(resolve => setTimeout(resolve, 700));
 
-        const statusResponse = await fetch(`http://localhost:3333/session/${sid}/creatoros/chat/status/${jobId}`);
+        const statusResponse = await fetch(`http://127.0.0.1:3333/session/${sid}/creatoros/chat/status/${jobId}`);
         const statusData = await statusResponse.json();
         if (!statusResponse.ok) {
           throw new Error(statusData.error || 'Lost track of the job');
